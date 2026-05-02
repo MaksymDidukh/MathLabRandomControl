@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Math Lab: Random Control</title>
+    <title>Math Lab: Control</title>
     <style>
         :root {
             --accent: #00ffcc;
@@ -11,6 +11,7 @@
         }
         body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Segoe UI', sans-serif; transition: 0.5s; }
         
+        /* Главный контейнер интерфейса */
         #ui {
             position: absolute;
             top: 20px;
@@ -24,6 +25,7 @@
             border: 1px solid rgba(0, 255, 204, 0.3);
             box-shadow: 0 10px 40px rgba(0,0,0,0.7);
             min-width: 280px;
+            transition: opacity 0.5s, transform 0.5s;
         }
 
         .btn {
@@ -45,6 +47,19 @@
         .btn:hover { background: var(--accent); color: #000; }
         .btn.active { background: #ff414d; border-color: #ff414d; color: #fff; box-shadow: 0 0 15px #ff414d; }
 
+        /* Кнопка возврата (по умолчанию скрыта) */
+        #restoreBtn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: none;
+            width: auto;
+            background: rgba(255, 255, 255, 0.1);
+            opacity: 0.5;
+        }
+        #restoreBtn:hover { opacity: 1; background: var(--accent); }
+
         #telemetry { 
             font-family: 'Courier New', monospace; 
             font-size: 11px; 
@@ -55,24 +70,28 @@
         }
 
         .light-mode { --bg: #fdfdfd; --accent: #222; --panel: rgba(240, 240, 240, 0.95); }
+        .hidden { opacity: 0; pointer-events: none; transform: translateX(-20px); }
         
-        /* Стилизация lil-gui для компактности */
-        .lil-gui { --width: 300px; --name-width: 55%; }
+        .lil-gui { transition: opacity 0.5s; }
+        .gui-hidden { opacity: 0 !important; pointer-events: none !important; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <h3 style="margin:0 0 10px 0; letter-spacing: 1px;">Math Lab: Random Contro</h3>
+        <h3 style="margin:0 0 10px 0; letter-spacing: 1px;">Math Lab: Research</h3>
         <button class="btn" id="themeBtn">СМЕНИТЬ ЦВЕТОВОЕ ПОЛЕ</button>
         <button class="btn" id="chaosBtn">РЕЖИМ ХАОСА: ВЫКЛ</button>
+        <button class="btn" id="hideBtn" style="border-color: #aaa; color: #aaa;">СКРЫТЬ ИНТЕРФЕЙС</button>
         
         <div id="telemetry">
             SYSTEM_LOCKS: <span id="lock_count">0</span> ACTIVE<br>
             STABILITY_INDEX: <span id="ent">1.00</span><br>
-            <span style="color: #666;">GRANULAR CONTROL ENABLED</span>
+            <span style="color: #666;">IMMERSIVE MODE READY</span>
         </div>
     </div>
+
+    <button class="btn" id="restoreBtn">ВЕРНУТЬ ЭЛЕМЕНТЫ</button>
 
     <script type="importmap">
         {
@@ -89,18 +108,13 @@
         import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
         const params = {
-            // Тригонометрия + Локи
             sinVal: 1.0, lockSin: false,
             cosVal: 1.0, lockCos: false,
             tanVal: 1.0, lockTan: false,
             cotVal: 1.0, lockCot: false,
-            
-            // Геометрия + Локи
             thickness: 0.8, lockThickness: false,
             complexity: 4, lockComplexity: false,
             quantumEnergy: 2.0, lockQuantum: false,
-            
-            // Цвет
             color: '#00ffcc', lockColor: false,
             chaos: false
         };
@@ -154,7 +168,6 @@
 
         function refreshAll() {
             refreshKnot(); refreshTesseract(); refreshQuantum();
-            // Считаем активные локи для телеметрии
             const locks = Object.keys(params).filter(k => k.startsWith('lock') && params[k]).length;
             document.getElementById('lock_count').innerText = locks;
         }
@@ -176,7 +189,6 @@
                     if(!params.lockComplexity) params.complexity = Math.floor(Math.random() * 12) + 1;
                     if(!params.lockQuantum) params.quantumEnergy = Math.random() * 10;
                     if(!params.lockColor) params.color = '#' + Math.floor(Math.random()*16777215).toString(16);
-                    
                     refreshAll();
                     gui.controllers.forEach(c => c.updateDisplay());
                     Object.values(gui.__folders).forEach(f => f.controllers.forEach(c => c.updateDisplay()));
@@ -188,56 +200,59 @@
             }
         };
 
-        // --- GUI Конструктор ---
+        // --- Логика скрытия интерфейса ---
+        const uiContainer = document.getElementById('ui');
+        const hideBtn = document.getElementById('hideBtn');
+        const restoreBtn = document.getElementById('restoreBtn');
+
+        function toggleInterface(hide) {
+            if(hide) {
+                uiContainer.classList.add('hidden');
+                document.querySelector('.lil-gui').classList.add('gui-hidden');
+                restoreBtn.style.display = 'block';
+            } else {
+                uiContainer.classList.remove('hidden');
+                document.querySelector('.lil-gui').classList.remove('gui-hidden');
+                restoreBtn.style.display = 'none';
+            }
+        }
+
+        hideBtn.onclick = () => toggleInterface(true);
+        restoreBtn.onclick = () => toggleInterface(false);
+
+        // --- GUI ---
         const gui = new GUI({ title: 'ЦЕНТР УПРАВЛЕНИЯ' });
-        
-        const trig = gui.addFolder('Тригонометрические Локи');
-        trig.add(params, 'sinVal', 0.1, 3).name('Sin (p-mod)');
-        trig.add(params, 'lockSin').name('🔒 Lock Sin');
-        trig.add(params, 'cosVal', 0.1, 3).name('Cos (q-mod)');
-        trig.add(params, 'lockCos').name('🔒 Lock Cos');
-        trig.add(params, 'tanVal', 0.1, 3).name('Tan (speed)');
-        trig.add(params, 'lockTan').name('🔒 Lock Tan');
-        trig.add(params, 'cotVal', 0.1, 3).name('Cot (axis)');
-        trig.add(params, 'lockCot').name('🔒 Lock Cot');
-
-        const geom = gui.addFolder('Геометрические Локи');
-        geom.add(params, 'thickness', 0.1, 4).name('Толщина');
-        geom.add(params, 'lockThickness').name('🔒 Lock Thickness');
-        geom.add(params, 'complexity', 1, 15).step(1).name('Сложность');
-        geom.add(params, 'lockComplexity').name('🔒 Lock Complexity');
-        geom.add(params, 'quantumEnergy', 0, 15).name('Квант. Энергия');
-        geom.add(params, 'lockQuantum').name('🔒 Lock Quantum');
-        geom.addColor(params, 'color').name('Цвет');
-        geom.add(params, 'lockColor').name('🔒 Lock Color');
-
+        const trig = gui.addFolder('Тригонометрия');
+        trig.add(params, 'sinVal', 0.1, 3).name('Sin'); trig.add(params, 'lockSin').name('🔒 Lock');
+        trig.add(params, 'cosVal', 0.1, 3).name('Cos'); trig.add(params, 'lockCos').name('🔒 Lock');
+        trig.add(params, 'tanVal', 0.1, 3).name('Tan'); trig.add(params, 'lockTan').name('🔒 Lock');
+        trig.add(params, 'cotVal', 0.1, 3).name('Cot'); trig.add(params, 'lockCot').name('🔒 Lock');
+        const geom = gui.addFolder('Геометрия');
+        geom.add(params, 'thickness', 0.1, 4).name('Толщина'); geom.add(params, 'lockThickness').name('🔒 Lock');
+        geom.add(params, 'complexity', 1, 15).step(1).name('Сложность'); geom.add(params, 'lockComplexity').name('🔒 Lock');
+        geom.add(params, 'quantumEnergy', 0, 15).name('Энергия'); geom.add(params, 'lockQuantum').name('🔒 Lock');
+        geom.addColor(params, 'color').name('Цвет'); geom.add(params, 'lockColor').name('🔒 Lock');
         gui.onChange(refreshAll);
 
-        // --- Theme ---
         document.getElementById('themeBtn').onclick = () => {
             document.body.classList.toggle('light-mode');
             scene.background = new THREE.Color(document.body.classList.contains('light-mode') ? 0xf0f0f0 : 0x050505);
         };
 
-        // --- Animation ---
         const clock = new THREE.Clock();
         function animate() {
             requestAnimationFrame(animate);
             const t = clock.getElapsedTime();
-            
             mainGroup.rotation.y += 0.005 * params.tanVal;
             mainGroup.rotation.x += 0.002 * params.cotVal;
-            
             const s = 0.5 + Math.sin(t * params.sinVal) * (0.3 * params.cosVal);
             tesseractGroup.children[1].scale.setScalar(s);
-            
             if(particles) {
                 const p = particles.geometry.attributes.position.array;
                 const force = 0.1 * params.quantumEnergy;
                 for(let i=0; i<p.length; i++) p[i] += (Math.random() - 0.5) * force;
                 particles.geometry.attributes.position.needsUpdate = true;
             }
-
             document.getElementById('ent').innerText = (Math.random() * (params.chaos ? 10 : 1)).toFixed(2);
             controls.update();
             renderer.render(scene, camera);
@@ -257,7 +272,6 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
     </script>
-<script src="https://dmamax.netlify.app/legal-module.js"></script>
-
 </body>
-</html>
+    </html>
+    
