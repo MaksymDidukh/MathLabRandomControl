@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Math Lab: Random Control</title>
+    <style>
+        :root {
+            --accent: #00ffcc;
+            --bg: #050505;
+            --panel: rgba(0, 15, 15, 0.95);
+        }
+        body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Segoe UI', sans-serif; transition: 0.5s; }
+        
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            color: var(--accent);
+            pointer-events: none;
+            background: var(--panel);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 255, 204, 0.3);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+            min-width: 280px;
+        }
+
+        .btn {
+            pointer-events: auto;
+            background: rgba(0, 255, 204, 0.1);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            padding: 10px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 8px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            border-radius: 4px;
+            transition: 0.3s;
+        }
+
+        .btn:hover { background: var(--accent); color: #000; }
+        .btn.active { background: #ff414d; border-color: #ff414d; color: #fff; box-shadow: 0 0 15px #ff414d; }
+
+        #telemetry { 
+            font-family: 'Courier New', monospace; 
+            font-size: 11px; 
+            margin-top: 10px; 
+            border-top: 1px solid rgba(0, 255, 204, 0.2); 
+            padding-top: 10px;
+            line-height: 1.4;
+        }
+
+        .light-mode { --bg: #fdfdfd; --accent: #222; --panel: rgba(240, 240, 240, 0.95); }
+        
+        /* Стилизация lil-gui для компактности */
+        .lil-gui { --width: 300px; --name-width: 55%; }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <h3 style="margin:0 0 10px 0; letter-spacing: 1px;">Math Lab: Random Contro</h3>
+        <button class="btn" id="themeBtn">СМЕНИТЬ ЦВЕТОВОЕ ПОЛЕ</button>
+        <button class="btn" id="chaosBtn">РЕЖИМ ХАОСА: ВЫКЛ</button>
+        
+        <div id="telemetry">
+            SYSTEM_LOCKS: <span id="lock_count">0</span> ACTIVE<br>
+            STABILITY_INDEX: <span id="ent">1.00</span><br>
+            <span style="color: #666;">GRANULAR CONTROL ENABLED</span>
+        </div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+
+        const params = {
+            // Тригонометрия + Локи
+            sinVal: 1.0, lockSin: false,
+            cosVal: 1.0, lockCos: false,
+            tanVal: 1.0, lockTan: false,
+            cotVal: 1.0, lockCot: false,
+            
+            // Геометрия + Локи
+            thickness: 0.8, lockThickness: false,
+            complexity: 4, lockComplexity: false,
+            quantumEnergy: 2.0, lockQuantum: false,
+            
+            // Цвет
+            color: '#00ffcc', lockColor: false,
+            chaos: false
+        };
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        camera.position.set(30, 30, 30);
+        controls.enableDamping = true;
+
+        const mainGroup = new THREE.Group();
+        const tesseractGroup = new THREE.Group();
+        const quantumGroup = new THREE.Group();
+        scene.add(mainGroup, tesseractGroup, quantumGroup);
+
+        let knot, particles;
+
+        function refreshKnot() {
+            if(knot) mainGroup.remove(knot);
+            const p = Math.max(1, Math.round(params.complexity * params.sinVal));
+            const q = Math.max(1, Math.round(3 * params.cosVal));
+            const geo = new THREE.TorusKnotGeometry(15, params.thickness, 256, 32, p, q);
+            const mat = new THREE.MeshPhongMaterial({ color: params.color, wireframe: true });
+            knot = new THREE.Mesh(geo, mat);
+            mainGroup.add(knot);
+        }
+
+        function refreshTesseract() {
+            tesseractGroup.clear();
+            const mat = new THREE.LineBasicMaterial({ color: params.color, transparent: true, opacity: 0.5 });
+            const box1 = new THREE.BoxGeometry(12, 12, 12);
+            const box2 = new THREE.BoxGeometry(6, 6, 6);
+            tesseractGroup.add(new THREE.LineSegments(new THREE.EdgesGeometry(box1), mat));
+            tesseractGroup.add(new THREE.LineSegments(new THREE.EdgesGeometry(box2), mat));
+        }
+
+        function refreshQuantum() {
+            if(particles) quantumGroup.remove(particles);
+            const geo = new THREE.BufferGeometry();
+            const pos = new Float32Array(6000 * 3);
+            for(let i=0; i<6000 * 3; i++) pos[i] = (Math.random() - 0.5) * 65;
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            particles = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.1, color: params.color }));
+            quantumGroup.add(particles);
+        }
+
+        function refreshAll() {
+            refreshKnot(); refreshTesseract(); refreshQuantum();
+            // Считаем активные локи для телеметрии
+            const locks = Object.keys(params).filter(k => k.startsWith('lock') && params[k]).length;
+            document.getElementById('lock_count').innerText = locks;
+        }
+
+        // --- Chaos Logic ---
+        let chaosInterval;
+        const chaosBtn = document.getElementById('chaosBtn');
+        chaosBtn.onclick = () => {
+            params.chaos = !params.chaos;
+            if (params.chaos) {
+                chaosBtn.innerText = "ХАОС: АКТИВИРОВАН";
+                chaosBtn.classList.add('active');
+                chaosInterval = setInterval(() => {
+                    if(!params.lockSin) params.sinVal = Math.random() * 2.5 + 0.1;
+                    if(!params.lockCos) params.cosVal = Math.random() * 2.5 + 0.1;
+                    if(!params.lockTan) params.tanVal = Math.random() * 2.5 + 0.1;
+                    if(!params.lockCot) params.cotVal = Math.random() * 2.5 + 0.1;
+                    if(!params.lockThickness) params.thickness = Math.random() * 2 + 0.2;
+                    if(!params.lockComplexity) params.complexity = Math.floor(Math.random() * 12) + 1;
+                    if(!params.lockQuantum) params.quantumEnergy = Math.random() * 10;
+                    if(!params.lockColor) params.color = '#' + Math.floor(Math.random()*16777215).toString(16);
+                    
+                    refreshAll();
+                    gui.controllers.forEach(c => c.updateDisplay());
+                    Object.values(gui.__folders).forEach(f => f.controllers.forEach(c => c.updateDisplay()));
+                }, 800);
+            } else {
+                chaosBtn.innerText = "РЕЖИМ ХАОСА: ВЫКЛ";
+                chaosBtn.classList.remove('active');
+                clearInterval(chaosInterval);
+            }
+        };
+
+        // --- GUI Конструктор ---
+        const gui = new GUI({ title: 'ЦЕНТР УПРАВЛЕНИЯ' });
+        
+        const trig = gui.addFolder('Тригонометрические Локи');
+        trig.add(params, 'sinVal', 0.1, 3).name('Sin (p-mod)');
+        trig.add(params, 'lockSin').name('🔒 Lock Sin');
+        trig.add(params, 'cosVal', 0.1, 3).name('Cos (q-mod)');
+        trig.add(params, 'lockCos').name('🔒 Lock Cos');
+        trig.add(params, 'tanVal', 0.1, 3).name('Tan (speed)');
+        trig.add(params, 'lockTan').name('🔒 Lock Tan');
+        trig.add(params, 'cotVal', 0.1, 3).name('Cot (axis)');
+        trig.add(params, 'lockCot').name('🔒 Lock Cot');
+
+        const geom = gui.addFolder('Геометрические Локи');
+        geom.add(params, 'thickness', 0.1, 4).name('Толщина');
+        geom.add(params, 'lockThickness').name('🔒 Lock Thickness');
+        geom.add(params, 'complexity', 1, 15).step(1).name('Сложность');
+        geom.add(params, 'lockComplexity').name('🔒 Lock Complexity');
+        geom.add(params, 'quantumEnergy', 0, 15).name('Квант. Энергия');
+        geom.add(params, 'lockQuantum').name('🔒 Lock Quantum');
+        geom.addColor(params, 'color').name('Цвет');
+        geom.add(params, 'lockColor').name('🔒 Lock Color');
+
+        gui.onChange(refreshAll);
+
+        // --- Theme ---
+        document.getElementById('themeBtn').onclick = () => {
+            document.body.classList.toggle('light-mode');
+            scene.background = new THREE.Color(document.body.classList.contains('light-mode') ? 0xf0f0f0 : 0x050505);
+        };
+
+        // --- Animation ---
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const t = clock.getElapsedTime();
+            
+            mainGroup.rotation.y += 0.005 * params.tanVal;
+            mainGroup.rotation.x += 0.002 * params.cotVal;
+            
+            const s = 0.5 + Math.sin(t * params.sinVal) * (0.3 * params.cosVal);
+            tesseractGroup.children[1].scale.setScalar(s);
+            
+            if(particles) {
+                const p = particles.geometry.attributes.position.array;
+                const force = 0.1 * params.quantumEnergy;
+                for(let i=0; i<p.length; i++) p[i] += (Math.random() - 0.5) * force;
+                particles.geometry.attributes.position.needsUpdate = true;
+            }
+
+            document.getElementById('ent').innerText = (Math.random() * (params.chaos ? 10 : 1)).toFixed(2);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        scene.background = new THREE.Color(0x050505);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+        const l = new THREE.PointLight(0xffffff, 1000);
+        l.position.set(20, 20, 20);
+        scene.add(l);
+
+        refreshAll();
+        animate();
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+<script src="https://dmamax.netlify.app/legal-module.js"></script>
+
+</body>
+</html>
